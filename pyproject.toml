@@ -1,0 +1,24 @@
+[project]
+name = "bellhaven-crm"
+version = "0.1.0"
+description = "Reconciles Bellhaven's public community list against the CRM sandbox."
+requires-python = ">=3.11"
+dependencies = [
+    "httpx",
+    "selectolax",
+    "rapidfuzz",
+    "fastapi",
+    "uvicorn",
+    "jinja2",
+    "python-multipart",
+    "python-dotenv",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+include = ["bellhaven*", "review*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
