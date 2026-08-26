@@ -274,3 +274,38 @@ def test_every_proposal_carries_evidence(props):
         assert p.evidence, f"{p.kind} has no evidence"
         assert p.changes or p.new_account, f"{p.kind} proposes nothing"
         assert 0 < p.confidence <= 100
+
+
+# --- re-run stability ----------------------------------------------------
+
+def test_resolved_duplicates_leave_the_candidate_pool(sites, accounts):
+    """Once a losing copy carries duplicate_of_account it is retired. It must
+    not be re-considered, or a later parent change could elect a different
+    survivor and propose a contradictory link."""
+    retired_name = "Kettering Care Centre"
+    survivor_id = aid(accounts, "Kettering Senior Campus")
+    after = [
+        {**a, "duplicate_of_account": survivor_id, "status": "Inactive"}
+        if a["name"] == retired_name else a
+        for a in accounts
+    ]
+    props = build_proposals(sites, after, match_all(sites, after))
+    retired_id = aid(accounts, retired_name)
+    assert not [p for p in props if p.target_account_id == retired_id], \
+        "retired duplicate was re-proposed"
+
+
+def test_retired_duplicate_is_not_flagged_delisted(sites, accounts):
+    """A retired copy that sits under the Bellhaven parent must still count as
+    claimed, or it reappears as a DELISTED 'Needs Review'."""
+    owosso = [a for a in accounts if a["name"] == "Bellhaven of Owosso"]
+    assert len(owosso) == 2
+    retired_id, survivor_id = sorted(a["account_id"] for a in owosso)
+    after = [
+        {**a, "duplicate_of_account": retired_id, "status": "Inactive"}
+        if a["account_id"] == survivor_id else a
+        for a in accounts
+    ]
+    props = build_proposals(sites, after, match_all(sites, after))
+    delisted = {p.target_account_id for p in props if p.kind == "DELISTED"}
+    assert survivor_id not in delisted

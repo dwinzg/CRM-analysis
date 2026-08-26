@@ -139,8 +139,20 @@ def build_proposals(sites, accounts: list[dict], matches) -> list[Proposal]:
             continue
 
         match_by_id = {m.account_id: m for m in site_matches}
-        candidates = [by_id[m.account_id] for m in site_matches]
-        claimed.update(a["account_id"] for a in candidates)
+        matched_accounts = [by_id[m.account_id] for m in site_matches]
+
+        # Every matched account counts as claimed — including ones already
+        # retired — so a resolved duplicate is never mistaken for a delisted
+        # facility on a later run.
+        claimed.update(a["account_id"] for a in matched_accounts)
+
+        # ...but a record already marked as a duplicate of another is retired,
+        # not a candidate. Leaving it in the pool means a later parent change
+        # could elect a new survivor and mint a contradictory duplicate link.
+        candidates = [a for a in matched_accounts if not a.get("duplicate_of_account")]
+        if not candidates:
+            continue
+
         survivor = pick_survivor(candidates)
 
         # 1. Retire the losing copies. They receive nothing else.
