@@ -211,3 +211,34 @@ def test_a_failed_row_can_be_retried(led):
 def test_decide_rejects_an_unknown_fingerprint(led):
     with pytest.raises(KeyError):
         led.decide("deadbeefdeadbeef", "approved", "")
+
+
+def test_evidence_refreshes_on_every_run(led):
+    """Identity comes from the fingerprint, but evidence is a snapshot of the
+    CRM as it was. INSERT OR IGNORE leaves an existing row's evidence frozen at
+    whatever the first run recorded, so the review UI shows the wrong current
+    values and apply has nothing to compare against."""
+    p1 = Proposal("RENAME", "A1", "s", {"name": "New Name"},
+                  {"before": {"name": "Old"}, "signals": ["a"]}, 100, None)
+    led.upsert([p1])
+
+    p2 = Proposal("RENAME", "A1", "s", {"name": "New Name"},
+                  {"before": {"name": "Something Else"}, "signals": ["a", "b"]}, 90, None)
+    led.upsert([p2])
+
+    assert fp_of(p1) == fp_of(p2), "evidence must not change identity"
+    row = led.pending()[0]
+    assert json.loads(row["evidence_json"])["before"] == {"name": "Something Else"}
+    assert row["confidence"] == 90
+
+
+def test_refreshing_evidence_does_not_disturb_a_decision(led):
+    p = mk()
+    led.upsert([p])
+    led.decide(fp_of(p), "approved", "checked")
+    led.upsert([Proposal(p.kind, p.target_account_id, p.site_slug, p.changes,
+                         {"before": {"name": "moved"}}, 100, None)])
+    row = led.all_rows()[0]
+    assert row["status"] == "approved"
+    assert row["decided_note"] == "checked"
+    assert json.loads(row["evidence_json"])["before"] == {"name": "moved"}

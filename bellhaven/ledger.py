@@ -93,8 +93,15 @@ class Ledger:
                  json.dumps(p.evidence), p.confidence, _now(), _now()),
             )
             inserted += cur.rowcount
-            self.db.execute("UPDATE proposals SET last_seen_at = ? WHERE fingerprint = ?",
-                            (_now(), fp))
+            # Evidence and confidence are a snapshot of the CRM as it was, not
+            # part of the proposal's identity, so they are refreshed every run.
+            # Without this an existing row keeps whatever the first run saw:
+            # the review UI shows stale current-values and apply.py has nothing
+            # accurate to compare against. The decision is untouched.
+            self.db.execute(
+                "UPDATE proposals SET last_seen_at = ?, evidence_json = ?, confidence = ? "
+                "WHERE fingerprint = ?",
+                (_now(), json.dumps(p.evidence), p.confidence, fp))
             # A proposal that went stale, or whose write failed, is still an
             # undecided and still-valid correction if the pipeline computes it
             # again. Revive it, or it stays invisible with no way back: a five
