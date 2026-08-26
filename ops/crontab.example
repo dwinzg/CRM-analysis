@@ -1,0 +1,9 @@
+# Bellhaven CRM reconciliation — proposes daily at 09:00. Never applies.
+#
+#   crontab -e   and paste the line below, adjusting the path.
+#
+# Approved changes are written only when a human runs `make apply` (or presses
+# "Apply approved to CRM" in the review app), so an unattended run can never
+# modify the CRM.
+
+0 9 * * * .venv/bin/python -m bellhaven.pipeline >> data/cron.log 2>&1

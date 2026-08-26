@@ -1,0 +1,63 @@
+# Daily reconciliation.
+#
+# This job PROPOSES ONLY. It never writes to the CRM.
+# Applying requires a human in the review app — see bellhaven/apply.py, which
+# reads ledger.approved() and nothing else.
+name: bellhaven-crm-sync
+
+on:
+  schedule:
+    - cron: "0 13 * * *"   # 09:00 America/New_York (13:00 UTC)
+  workflow_dispatch:
+
+jobs:
+  propose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: pip install -e '.[dev]'
+
+      - name: Test
+        run: pytest -q
+
+      # The ledger is what makes a re-run safe: a proposal already approved,
+      # rejected or applied is never offered again. Restoring it before the run
+      # and saving it after is what carries that state between scheduled runs.
+      - name: Restore proposal ledger
+        uses: actions/cache@v4
+        with:
+          path: data/ledger.db
+          key: bellhaven-ledger-${{ github.run_id }}
+          restore-keys: bellhaven-ledger-
+
+      - name: Scrape, match, and queue proposals
+        env:
+          CRM_TOKEN: ${{ secrets.CRM_TOKEN }}
+        run: python -m bellhaven.pipeline | tee run-summary.json
+
+      - name: Summarise
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          d = json.load(open("run-summary.json"))
+          print("## Bellhaven CRM sync\n")
+          print(f"- {d['locations_scraped']} locations scraped")
+          print(f"- {d['accounts_fetched']} CRM accounts")
+          print(f"- **{d['inserted']} new proposals** awaiting review")
+          print(f"- ledger: `{d['ledger']}`\n")
+          if d["inserted"]:
+              print("Review them locally with `make review`, then `make apply`.")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: proposals-${{ github.run_id }}
+          path: |
+            run-summary.json
+            data/ledger.db
