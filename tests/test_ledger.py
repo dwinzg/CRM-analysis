@@ -156,3 +156,58 @@ def test_payload_round_trips(led):
     row = led.pending()[0]
     assert json.loads(row["new_account_json"])["name"] == "Amberly Manor"
     assert json.loads(row["changes_json"]) == {}
+
+
+# --- regressions from code review ----------------------------------------
+
+def test_stale_proposal_revives_when_it_reappears(led):
+    """A proposal can go stale because the CRM briefly changed, or because an
+    offline run overwrote the queue. If it comes back it is still a valid
+    undecided correction, and it must be reviewable again. Leaving it stale
+    hides real work with no way to recover it from the UI."""
+    p = mk()
+    led.upsert([p])
+    led.upsert([])                       # disappears
+    assert led.all_rows()[0]["status"] == "stale"
+    led.upsert([p])                      # comes back
+    assert led.all_rows()[0]["status"] == "pending"
+    assert len(led.pending()) == 1
+
+
+def test_reviving_never_resurrects_a_decided_proposal(led):
+    """Reviving must only lift 'stale'. A rejection stays rejected forever."""
+    for decision in ("approved", "rejected"):
+        p = mk(tid=f"A-{decision}")
+        led.upsert([p])
+        led.decide(fp_of(p), decision, "")
+        led.upsert([])
+        led.upsert([p])
+        row = next(r for r in led.all_rows() if r["fingerprint"] == fp_of(p))
+        assert row["status"] == decision
+
+
+def test_decide_refuses_to_touch_an_applied_row(led):
+    """/decide is a plain form POST. A back-button resubmit must not re-approve
+    an applied CREATE, or apply would make a second account for one facility."""
+    p = mk()
+    led.upsert([p])
+    led.decide(fp_of(p), "approved", "")
+    led.mark_applied(fp_of(p), {"patched": ["name"]})
+    with pytest.raises(ValueError, match="applied"):
+        led.decide(fp_of(p), "approved", "")
+    assert led.all_rows()[0]["status"] == "applied"
+
+
+def test_a_failed_row_can_be_retried(led):
+    """Failure is not a verdict on the change, so re-approving is allowed."""
+    p = mk()
+    led.upsert([p])
+    led.decide(fp_of(p), "approved", "")
+    led.mark_failed(fp_of(p), "503 from CRM")
+    led.decide(fp_of(p), "approved", "retrying")
+    assert led.all_rows()[0]["status"] == "approved"
+
+
+def test_decide_rejects_an_unknown_fingerprint(led):
+    with pytest.raises(KeyError):
+        led.decide("deadbeefdeadbeef", "approved", "")

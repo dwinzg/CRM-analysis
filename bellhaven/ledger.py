@@ -95,6 +95,13 @@ class Ledger:
             inserted += cur.rowcount
             self.db.execute("UPDATE proposals SET last_seen_at = ? WHERE fingerprint = ?",
                             (_now(), fp))
+            # A proposal that went stale and has now reappeared is still an
+            # undecided, still-valid correction. Revive it, or it stays
+            # invisible to the reviewer with no way back. Only 'stale' is
+            # lifted: a decision is permanent.
+            self.db.execute(
+                "UPDATE proposals SET status = 'pending' "
+                "WHERE fingerprint = ? AND status = 'stale'", (fp,))
 
         # A pending proposal that stopped appearing describes a world that no
         # longer exists. Decided rows are never touched.
@@ -109,8 +116,22 @@ class Ledger:
         return {"inserted": inserted, "seen": len(seen), "staled": staled}
 
     def decide(self, fp: str, decision: str, note: str = "") -> None:
+        """Record a human decision.
+
+        Refuses to touch an already-applied row. `/decide` is a plain form POST,
+        so a back-button resubmit would otherwise re-approve an applied CREATE
+        and the next apply would make a second account for one facility.
+        A failed row can be re-approved, because failure is a transport problem
+        rather than a verdict on the change.
+        """
         if decision not in ("approved", "rejected"):
             raise ValueError(f"decision must be approved or rejected, got {decision!r}")
+        row = self.db.execute(
+            "SELECT status FROM proposals WHERE fingerprint = ?", (fp,)).fetchone()
+        if row is None:
+            raise KeyError(f"no proposal with fingerprint {fp!r}")
+        if row["status"] == "applied":
+            raise ValueError(f"proposal {fp} is already applied and cannot be re-decided")
         self.db.execute(
             "UPDATE proposals SET status = ?, decided_at = ?, decided_note = ? "
             "WHERE fingerprint = ?", (decision, _now(), note, fp))
