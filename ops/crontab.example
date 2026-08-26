@@ -1,4 +1,4 @@
-# Bellhaven CRM reconciliation — proposes daily at 09:00. Never applies.
+# Bellhaven CRM reconciliation. Proposes daily at 09:00, never applies.
 #
 #   crontab -e   and paste the line below, adjusting the path.
 #

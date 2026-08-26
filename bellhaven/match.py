@@ -4,7 +4,7 @@ Two-stage by design:
 
 1. A hard GATE decides whether a pair is even a candidate. State must match,
    plus at least one of city / zip / phone. This exists because the dataset is
-   seeded with name-similarity decoys — Amberly Manor (Hudson, OH) scores ~88%
+   seeded with name-similarity decoys. Amberly Manor (Hudson, OH) scores ~88%
    against Amberly Care Center (Grand Rapids, MI), and the Willowbrook,
    Rosewood, Golden Gate and Winding Creek clusters are the same trap. Name
    similarity on its own is actively dangerous here.
@@ -14,7 +14,7 @@ Two-stage by design:
    named rule is safer and more reviewable than nudging a coefficient.
 
 Every tier records the signals that fired. That list is the evidence the review
-app renders — there is no separate evidence-building step.
+app renders, so there is no separate evidence-building step.
 """
 from __future__ import annotations
 
@@ -87,7 +87,7 @@ def match_all(sites, accounts: list[dict]) -> list[MatchResult]:
     """Every (location, account) match. Deliberately many-to-many.
 
     Returning all candidates rather than the best one is what surfaces the
-    duplicate clusters — Kettering has three accounts at one address, and a
+    duplicate clusters. Kettering has three accounts at one address, and a
     first-hit join would report a clean match and hide the other two.
     """
     out: list[MatchResult] = []

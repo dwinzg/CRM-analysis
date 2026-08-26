@@ -66,7 +66,7 @@ def test_marietta_and_tiffin_are_chow(props, accounts):
 
 def test_lima_and_findlay_are_plain_reparents(props, accounts):
     """Both carry real revenue. Both have zero AR, so the SOP says re-parent
-    in place — this is the easiest case in the exercise to get wrong."""
+    in place this is the easiest case in the exercise to get wrong."""
     reparents = {p.target_account_id for p in of_kind(props, "REPARENT")}
     chows = {p.target_account_id for p in of_kind(props, "CHOW")}
     for name in ("Bellhaven Crossings of Lima", "Bellhaven Meadows of Findlay"):
@@ -157,7 +157,7 @@ def test_survivor_prefers_lineage_over_an_orphan():
 
 
 def test_revenue_outranks_lineage():
-    """Lineage must never outrank a billing signal — losing a billed record
+    """Lineage must never outrank a billing signal losing a billed record
     has real cost, losing a provenance trail does not."""
     orphan_with_money = {"account_id": "A", "parent_id": "", "lifetime_revenue": 90000,
                          "outstanding_ar": 0}
@@ -206,7 +206,7 @@ def test_street_fix_only_when_substantive(props, accounts):
 
 
 def test_portsmouth_gets_zip_fix(props, accounts):
-    """CRM 45626 vs website 45662 — transposed digits."""
+    """CRM 45626 vs website 45662 transposed digits."""
     target = aid(accounts, "Bellhaven of Portsmouth")
     p = next(p for p in of_kind(props, "FIELD_FIX") if p.target_account_id == target)
     assert p.changes["billing_zip"] == "45662"

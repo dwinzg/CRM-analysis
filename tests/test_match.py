@@ -75,8 +75,8 @@ DECOY_CLUSTERS = [
 @pytest.mark.parametrize("cluster", DECOY_CLUSTERS)
 def test_decoy_clusters_never_reach_a_confident_tier(accounts, cluster):
     """The gate stops cross-city namesakes outright. Same-city namesakes
-    (Winding Creek, both in Scranton PA) survive the gate by design — the gate
-    is a candidate filter, not a verdict — but must never reach a confident
+    (Winding Creek, both in Scranton PA) survive the gate by design. The gate
+    is a candidate filter, not a verdict, but must never reach a confident
     tier on name similarity alone. Tier D is the correct landing spot: flagged,
     not asserted."""
     accts = [by_name(accounts, n) for n in cluster]
@@ -123,7 +123,7 @@ def test_tier_b_survives_transposed_zip(sites, accounts):
 
 
 def test_tier_c_rescues_po_box(sites, accounts):
-    """Ashtabula's CRM street is 'PO Box 517' — address tiers can't apply."""
+    """Ashtabula's CRM street is 'PO Box 517' address tiers can't apply."""
     m = score_pair(by_slug(sites, "bellhaven-of-ashtabula"),
                    by_name(accounts, "Bellhaven of Ashtabula"))
     assert m.tier == "C"

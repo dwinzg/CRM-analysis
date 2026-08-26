@@ -94,7 +94,7 @@
     {% if show == 'pending' %}
       Nothing pending. Every proposal has been decided.
     {% else %}
-      No proposals yet — run <code>make run</code>.
+      No proposals yet. Run <code>make run</code>.
     {% endif %}
   </p>
 {% endif %}
@@ -150,7 +150,7 @@
             <div><dt>Address</dt><dd>{{ crm.address }}</dd></div>
             <div><dt>Parent</dt><dd>{{ crm.parent }}</dd></div>
             <div><dt>Status</dt><dd>{{ crm.status }}</dd></div>
-            <div><dt>Care type</dt><dd>{{ crm.care_type or '—' }}</dd></div>
+            <div><dt>Care type</dt><dd>{{ crm.care_type or '–' }}</dd></div>
             <div><dt>Lifetime revenue</dt><dd>{{ '{:,}'.format(crm.lifetime_revenue or 0) }}</dd></div>
             <div><dt>Outstanding AR</dt><dd>{{ '{:,}'.format(crm.outstanding_ar or 0) }}</dd></div>
             <div><dt>Account id</dt><dd><code>{{ crm.account_id }}</code></dd></div>
@@ -163,15 +163,15 @@
 
     {% if r.kind == 'CHOW' %}
     <div class="sop">
-      <b>Billing SOP — CHOW.</b> Lifetime revenue
+      <b>Billing SOP: CHOW.</b> Lifetime revenue
       {{ '{:,}'.format(crm.lifetime_revenue or 0) }} <b>AND</b> outstanding AR
       {{ '{:,}'.format(crm.outstanding_ar or 0) }} are both above zero, so this account
-      is preserved exactly as it is — its parent is <em>not</em> changed. A successor is
+      is preserved exactly as it is and its parent is <em>not</em> changed. A successor is
       created under Bellhaven and linked via <code>chow_current_account</code>.
     </div>
     {% elif r.kind == 'REPARENT' and (crm.lifetime_revenue or 0) > 0 %}
     <div class="sop">
-      <b>Billing SOP — re-parent in place.</b> This account has revenue history
+      <b>Billing SOP: re-parent in place.</b> This account has revenue history
       ({{ '{:,}'.format(crm.lifetime_revenue) }}) but outstanding AR is
       {{ '{:,}'.format(crm.outstanding_ar or 0) }}. The SOP requires <em>both</em> to be
       above zero for a CHOW, so the existing account is re-parented directly.
@@ -185,7 +185,7 @@
       {% for k, v in shown %}
       <tr>
         <td><code>{{ k }}</code></td>
-        <td class="was">{{ crm.get(k) if crm and crm.get(k) not in (None,'') else '—' }}</td>
+        <td class="was">{{ crm.get(k) if crm and crm.get(k) not in (None,'') else '–' }}</td>
         <td class="now">{{ v }}</td>
       </tr>
       {% endfor %}
@@ -196,7 +196,7 @@
     <table class="diff">
       <tr><th>New account</th><th></th><th>Value</th></tr>
       {% for k, v in r.new_account.items() if k != 'note' %}
-      <tr><td><code>{{ k }}</code></td><td></td><td class="now">{{ v or '—' }}</td></tr>
+      <tr><td><code>{{ k }}</code></td><td></td><td class="now">{{ v or '–' }}</td></tr>
       {% endfor %}
     </table>
     {% endif %}
@@ -215,7 +215,7 @@
     {% if r.status == 'pending' %}
     <form class="act" method="post" action="/decide">
       <input type="hidden" name="fingerprint" value="{{ r.fingerprint }}">
-      <input type="text" name="note" placeholder="Reviewer note (optional — required in spirit for a reject)">
+      <input type="text" name="note" placeholder="Reviewer note. Worth filling in if you reject.">
       <button class="ok" name="decision" value="approved" type="submit">Approve</button>
       <button class="no" name="decision" value="rejected" type="submit">Reject</button>
     </form>

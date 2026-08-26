@@ -1,4 +1,4 @@
-"""SQLite proposal ledger. No business logic — this is what makes re-runs safe.
+"""SQLite proposal ledger. No business logic. This is what makes re-runs safe.
 
 The contract the brief asks for is "running the pipeline a second time must not
 re-propose items that were already decided". That reduces to giving every

@@ -16,8 +16,8 @@ API_BASE = f"{BASE_URL}/api/v1"
 BELLHAVEN_PARENT_ID = "0015QAPLGS3FVYEEEM"
 
 #: The website and the CRM use different care vocabularies. This maps website
-#: language onto CRM language. The mapping is lossy — a site may list two
-#: offerings where the CRM field holds one — so it is only ever used to FILL a
+#: language onto CRM language. The mapping is lossy, because a site may list two
+#: offerings where the CRM field holds one, so it is only ever used to FILL a
 #: blank care_type, never to overwrite a populated one.
 CARE_MAP = {
     "Short-Term Rehabilitation & Nursing": "Skilled Nursing",

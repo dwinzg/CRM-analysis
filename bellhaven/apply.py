@@ -48,7 +48,7 @@ def apply_one(client, row: dict) -> dict:
         successor_id = account_id_of(created)
 
         # Rebuild the patch from scratch rather than trusting the stored dict.
-        # parent_id must never reach this call — that is the entire SOP.
+        # parent_id must never reach this call. That is the entire SOP.
         patch = {k: v for k, v in changes.items() if k not in ("parent_id", "chow_current_account")}
         patch["chow_current_account"] = successor_id
         client.patch_account(target, patch)

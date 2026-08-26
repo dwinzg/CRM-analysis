@@ -93,7 +93,7 @@ def name_sim(a, b) -> float:
     """0-100 similarity. token_set_ratio so word order and extra words
     ('Care Center' vs 'Center') don't tank an otherwise good match.
 
-    NEVER use this without the city/state gate in match.py — see the Amberly
+    NEVER use this without the city/state gate in match.py. See the Amberly
     and Willowbrook decoys.
     """
     return fuzz.token_set_ratio(norm_name(a), norm_name(b))

@@ -1,7 +1,7 @@
 """Turns matches into proposed changes. The billing SOP lives here.
 
 Order matters. Duplicates resolve first so that exactly one account per
-facility — the survivor — receives the re-parent, rename and field fixes. The
+facility. The survivor receives the re-parent, rename and field fixes. The
 retired copies get nothing but their duplicate marker.
 """
 from __future__ import annotations
@@ -42,8 +42,8 @@ def needs_chow(acct: dict) -> bool:
 def pick_survivor(accts: list[dict]) -> dict:
     """Which copy of a duplicated facility to keep, in strict precedence order:
 
-    1. Already under Bellhaven — the record the sales team is currently using.
-    2. Most revenue history, then most outstanding AR — billing signal beats
+    1. Already under Bellhaven. The record the sales team is currently using.
+    2. Most revenue history, then most outstanding AR. A billing signal beats
        everything below it, because losing a billed record has real cost.
     3. Has any parent at all. Between two otherwise identical records, the one
        with an acquisition lineage carries more provenance than an orphan.
@@ -141,8 +141,8 @@ def build_proposals(sites, accounts: list[dict], matches) -> list[Proposal]:
         match_by_id = {m.account_id: m for m in site_matches}
         matched_accounts = [by_id[m.account_id] for m in site_matches]
 
-        # Every matched account counts as claimed — including ones already
-        # retired — so a resolved duplicate is never mistaken for a delisted
+        # Every matched account counts as claimed, including ones already
+        # retired, so a resolved duplicate is never mistaken for a delisted
         # facility on a later run.
         claimed.update(a["account_id"] for a in matched_accounts)
 
@@ -201,7 +201,7 @@ def build_proposals(sites, accounts: list[dict], matches) -> list[Proposal]:
                     site, f"CHOW successor to {acct['name']} ({acct['account_id']}), which "
                           f"is preserved for billing. Source: {site.url}"),
             ))
-            # 'Leave the existing account exactly as it is' — nothing further.
+            # 'Leave the existing account exactly as it is', so nothing further.
             continue
 
         if wrong_parent:
@@ -269,7 +269,7 @@ def build_proposals(sites, accounts: list[dict], matches) -> list[Proposal]:
 def _delisted(accounts: list[dict], claimed: set[str]) -> list[Proposal]:
     """Accounts under Bellhaven that no website community matched.
 
-    Absence from a website is not proof of a sale — a site can simply be stale,
+    Absence from a website is not proof of a sale. A site can simply be stale,
     and wrongly deactivating a live account is worse for a sales team than
     leaving it flagged. So Inactive requires positive corroboration: another
     operator's account at the identical address. Everything else is flagged for

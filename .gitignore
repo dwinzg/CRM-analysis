@@ -1,7 +1,7 @@
-# Secrets — never commit
+# Secrets. Never commit.
 .env
 
-# Working notes, design docs, plans — local only
+# Working notes, design docs, plans. Local only.
 _local/
 
 # Runtime data: proposal ledger, run snapshots, logs

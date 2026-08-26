@@ -1,6 +1,6 @@
 """Orchestration: scrape, fetch, match, classify, record.
 
-Proposes only. Nothing here writes to the CRM — that is apply.py, and it runs
+Proposes only. Nothing here writes to the CRM. That is apply.py, and it runs
 only against proposals a human approved in the review app.
 """
 from __future__ import annotations

@@ -1,13 +1,16 @@
 # Daily reconciliation.
 #
 # This job PROPOSES ONLY. It never writes to the CRM.
-# Applying requires a human in the review app — see bellhaven/apply.py, which
+# Applying requires a human in the review app. See bellhaven/apply.py, which
 # reads ledger.approved() and nothing else.
 name: bellhaven-crm-sync
 
+# The schedule is intentionally left commented out. This is the configuration
+# we would use, but enabling it without a CRM_TOKEN secret set would just fail
+# every morning. Uncomment the two schedule lines to turn it on.
 on:
-  schedule:
-    - cron: "0 13 * * *"   # 09:00 America/New_York (13:00 UTC)
+  # schedule:
+  #   - cron: "0 13 * * *"   # 09:00 America/New_York (13:00 UTC)
   workflow_dispatch:
 
 jobs:

@@ -98,7 +98,7 @@ def test_chow_preserves_every_business_field_on_the_old_account(led):
 
 
 def test_chow_aborts_if_target_already_moved(led):
-    """If the account is already under Bellhaven, the CHOW is stale — and
+    """If the account is already under Bellhaven, the CHOW is stale and
     creating a successor anyway would duplicate the facility."""
     p = Proposal("CHOW", "OLD1", "s", {"chow_current_account": "<successor>", "note": "n"},
                  {}, 100, {"name": "X", "parent_id": BH})
