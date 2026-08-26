@@ -76,10 +76,14 @@ website care offerings to CRM care types (`CARE_MAP`) are both in
 
 ## Scheduling
 
-`.github/workflows/daily.yml` runs at 09:00 ET each day, and you can also
-trigger it by hand. It runs the tests, restores the proposal ledger from cache,
-proposes, and uploads the ledger as an artifact. It never applies anything, so
-an unattended run cannot change the CRM. Set `CRM_TOKEN` as a repository secret
-if you want to use it.
+`.github/workflows/daily.yml` holds the schedule we would use, which is 09:00
+ET each day. **The cron trigger is commented out**, so right now the workflow
+only runs when you trigger it by hand. Uncomment the two `schedule` lines and
+set `CRM_TOKEN` as a repository secret to turn it on.
 
-If you would rather run it locally, `ops/crontab.example` has the cron line.
+When it runs it tests, restores the proposal ledger from cache, proposes, and
+uploads the ledger as an artifact. It never applies anything, so an unattended
+run cannot change the CRM.
+
+`ops/crontab.example` is the same schedule for cron, if you would rather run it
+locally. It is an example file and is not installed for you.

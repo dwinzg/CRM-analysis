@@ -19,17 +19,33 @@ class CrmClient:
             timeout=30.0,
         )
 
+    PAGE_SIZE = 200
+
     def list_accounts(self) -> list[dict]:
-        """Every account, following pagination to the end."""
+        """Every account, following pagination to the end.
+
+        Stops on an empty page, on a short page, or once `total` is reached.
+        It deliberately does NOT stop when `total` is missing: the API declares
+        no response schema, and defaulting to "stop" there would silently
+        return a partial CRM. Reasoning over half the accounts produces
+        spurious CREATE proposals for facilities that already exist and hides
+        duplicate clusters that straddle a page boundary, so the safe default
+        is to keep paging while full batches keep arriving.
+        """
         out: list[dict] = []
         page = 1
         while True:
-            r = self._c.get(f"{self.base}/accounts", params={"page": page, "page_size": 200})
+            r = self._c.get(f"{self.base}/accounts",
+                            params={"page": page, "page_size": self.PAGE_SIZE})
             r.raise_for_status()
             body = r.json()
             batch = body.get("data", [])
             out.extend(batch)
-            if not batch or len(out) >= body.get("total", len(out)):
+
+            if not batch or len(batch) < self.PAGE_SIZE:
+                return out
+            total = body.get("total")
+            if total is not None and len(out) >= total:
                 return out
             page += 1
 

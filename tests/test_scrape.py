@@ -62,3 +62,49 @@ def test_parse_detail_handles_missing_optional_blocks():
     assert loc.street == "1 Main St"
     assert (loc.city, loc.state, loc.zip) == ("Springfield", "OH", "45503")
     assert loc.phone == ""
+
+
+# --- regressions from code review ----------------------------------------
+
+def test_one_broken_page_does_not_kill_the_run():
+    """A single edited detail page among the 35 must not produce zero
+    proposals. Better to report 34 locations and one named skip."""
+    import httpx
+
+    from bellhaven import config
+    from bellhaven.scrape import scrape_all
+
+    good = """<html><body><h1>Bellhaven of Somewhere</h1><dl class="detail">
+      <dt>Address</dt><dd>1 Main St<br>Springfield, OH 45503</dd>
+      <dt>Care Offerings</dt><dd><span class="badge">Assisted Living</span></dd>
+    </dl></body></html>"""
+    broken = "<html><body><h1>Broken</h1><p>no address here</p></body></html>"
+    index = ('<html><body><a href="/communities/good-one">a</a>'
+             '<a href="/communities/bad-one">b</a></body></html>')
+
+    def handler(request):
+        path = request.url.path
+        if path.endswith("/bad-one"):
+            return httpx.Response(200, text=broken)
+        if path.startswith("/communities/"):
+            return httpx.Response(200, text=good)
+        return httpx.Response(200, text=index)
+
+    original = httpx.Client
+    try:
+        httpx.Client = lambda **kw: original(
+            transport=httpx.MockTransport(handler), base_url=config.BASE_URL)
+        locations, skipped = scrape_all(return_skipped=True)
+    finally:
+        httpx.Client = original
+
+    assert [l.slug for l in locations] == ["good-one"]
+    assert [s[0] for s in skipped] == ["bad-one"]
+
+
+def test_scrape_all_still_returns_a_plain_list_by_default():
+    """Callers that don't ask for skips keep the simple return type."""
+    import inspect
+
+    from bellhaven.scrape import scrape_all
+    assert "return_skipped" in inspect.signature(scrape_all).parameters

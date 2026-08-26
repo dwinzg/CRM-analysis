@@ -114,18 +114,31 @@ def discover_slugs(client: httpx.Client) -> list[str]:
     return sorted(slugs)
 
 
-def scrape_all() -> list[SiteLocation]:
+def scrape_all(return_skipped: bool = False):
+    """Every community on the site.
+
+    A page that cannot be parsed is skipped and reported rather than raising.
+    One edited detail page among the 35 should cost one location, not the
+    whole run, since an exception here produces zero proposals and looks
+    identical to "nothing changed".
+    """
+    out: list[SiteLocation] = []
+    skipped: list[tuple[str, str]] = []
     with httpx.Client(timeout=30.0, follow_redirects=True) as client:
-        out = []
         for slug in discover_slugs(client):
-            r = client.get(f"{config.BASE_URL}/communities/{slug}")
-            r.raise_for_status()
-            out.append(parse_detail(r.text, slug))
-        return out
+            try:
+                r = client.get(f"{config.BASE_URL}/communities/{slug}")
+                r.raise_for_status()
+                out.append(parse_detail(r.text, slug))
+            except Exception as exc:
+                skipped.append((slug, f"{type(exc).__name__}: {exc}"))
+    return (out, skipped) if return_skipped else out
 
 
 if __name__ == "__main__":
-    locations = scrape_all()
+    locations, skipped = scrape_all(return_skipped=True)
+    for slug, reason in skipped:
+        print(f"skipped {slug}: {reason}")
     with open("tests/fixtures/site.json", "w") as fh:
         json.dump([asdict(l) for l in locations], fh, indent=1)
     print(f"{len(locations)} locations -> tests/fixtures/site.json")

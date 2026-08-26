@@ -39,10 +39,17 @@ jobs:
           key: bellhaven-ledger-${{ github.run_id }}
           restore-keys: bellhaven-ledger-
 
+      # `| tee` takes its exit status from tee, and the default shell does not
+      # set pipefail. Without this the step goes green on a scrape or auth
+      # failure and the job dies one step later on a json.load of an empty
+      # file, which is the misleading place to look.
       - name: Scrape, match, and queue proposals
+        shell: bash
         env:
           CRM_TOKEN: ${{ secrets.CRM_TOKEN }}
-        run: python -m bellhaven.pipeline | tee run-summary.json
+        run: |
+          set -o pipefail
+          python -m bellhaven.pipeline | tee run-summary.json
 
       - name: Summarise
         run: |

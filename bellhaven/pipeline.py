@@ -39,7 +39,12 @@ def ledger_path_for(offline: bool, db_path: str | None) -> str:
 
 
 def run(offline: bool = False, db_path: str | None = None) -> dict:
-    sites, accounts = load_offline() if offline else (scrape_all(), CrmClient().list_accounts())
+    skipped: list = []
+    if offline:
+        sites, accounts = load_offline()
+    else:
+        sites, skipped = scrape_all(return_skipped=True)
+        accounts = CrmClient().list_accounts()
     matches = match_all(sites, accounts)
     proposals = build_proposals(sites, accounts, matches)
 
@@ -50,6 +55,7 @@ def run(offline: bool = False, db_path: str | None = None) -> dict:
         "source": "fixtures" if offline else "live",
         "ledger_path": ledger_path_for(offline, db_path),
         "locations_scraped": len(sites),
+        "pages_skipped": [{"slug": slug, "reason": reason} for slug, reason in skipped],
         "accounts_fetched": len(accounts),
         "matches": len(matches),
         "proposals": len(proposals),
