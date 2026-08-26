@@ -388,3 +388,68 @@ def test_duplicate_of_a_chow_survivor_explains_the_successor_chain(sites, accoun
     assert len(dupes) == 1
     assert "chow_current_account" in dupes[0].changes["note"], \
         "note must point the reader on to the live successor"
+
+
+def test_a_chow_predecessor_is_never_re_proposed_as_a_duplicate(sites, accounts):
+    """After a CHOW there are two accounts for one facility, by design: the
+    preserved predecessor under its old parent and the successor under
+    Bellhaven. The predecessor must drop out of the candidate pool, or the
+    next run marks it Inactive and stamps it a duplicate, which destroys
+    exactly the record the SOP exists to protect."""
+    after = []
+    for a in accounts:
+        if a["name"] in ("Bellhaven of Marietta", "Bellhaven of Tiffin"):
+            successor_id = "SUCC" + a["account_id"][-4:]
+            after.append({**a, "chow_current_account": successor_id})
+            after.append({**a, "account_id": successor_id, "parent_id": BH,
+                          "parent_name": "Bellhaven Senior Living (Parent Account)",
+                          "lifetime_revenue": 0, "outstanding_ar": 0,
+                          "chow_current_account": ""})
+        else:
+            after.append(a)
+
+    props = build_proposals(sites, after, match_all(sites, after))
+    predecessors = {a["account_id"] for a in after if a.get("chow_current_account")}
+    assert len(predecessors) == 2
+    for p in props:
+        assert p.target_account_id not in predecessors, \
+            f"{p.kind} targets a preserved CHOW predecessor"
+
+
+def test_a_chow_predecessor_is_not_flagged_delisted(accounts):
+    """It must still count as claimed. A predecessor left under the Bellhaven
+    parent would otherwise reappear as a DELISTED 'Needs Review'."""
+    site_list = [SiteLocation(**d) for d in __import__("json").load(open("tests/fixtures/site.json"))]
+    after = []
+    for a in accounts:
+        if a["name"] == "Bellhaven of Wooster":       # already under Bellhaven
+            after.append({**a, "chow_current_account": "SUCCESSOR1"})
+        else:
+            after.append(a)
+    props = build_proposals(site_list, after, match_all(site_list, after))
+    target = next(a["account_id"] for a in after if a["name"] == "Bellhaven of Wooster")
+    assert target not in {p.target_account_id for p in props}
+
+
+def test_a_corroborated_divestiture_links_to_the_successor(props, accounts):
+    """Sandusky left Bellhaven for Millstone. That is a change of ownership,
+    and chow_current_account is the field that records one. The successor
+    already exists, so no account needs creating, but the old record should
+    still point at the live one instead of being a dead end. Its parent is not
+    changed, per the SOP."""
+    target = aid(accounts, "Bellhaven of Sandusky")
+    millstone = aid(accounts, "Millstone Care of Sandusky")
+    p = next(p for p in of_kind(props, "DELISTED") if p.target_account_id == target)
+    assert p.changes["status"] == "Inactive"
+    assert p.changes["chow_current_account"] == millstone
+    assert "parent_id" not in p.changes, "a divestiture must not re-parent the old account"
+
+
+def test_an_uncorroborated_delisting_gets_no_successor_link(props, accounts):
+    """No evidence of a successor means no link. Alliance and Coldwater are
+    flagged, not resolved."""
+    for name in ("Bellhaven Care Center of Alliance", "Bellhaven of Coldwater"):
+        target = aid(accounts, name)
+        p = next(p for p in of_kind(props, "DELISTED") if p.target_account_id == target)
+        assert "chow_current_account" not in p.changes
+        assert p.changes["status"] == "Needs Review"

@@ -158,10 +158,21 @@ def build_proposals(sites, accounts: list[dict], matches) -> list[Proposal]:
         # facility on a later run.
         claimed.update(a["account_id"] for a in matched_accounts)
 
-        # ...but a record already marked as a duplicate of another is retired,
-        # not a candidate. Leaving it in the pool means a later parent change
-        # could elect a new survivor and mint a contradictory duplicate link.
-        candidates = [a for a in matched_accounts if not a.get("duplicate_of_account")]
+        # ...but two kinds of record are settled, not candidates:
+        #
+        #   duplicate_of_account  a retired copy. Leaving it in the pool means a
+        #                         later parent change could elect a new survivor
+        #                         and mint a contradictory duplicate link.
+        #   chow_current_account  a preserved predecessor. After a CHOW there
+        #                         are deliberately two accounts for one
+        #                         facility, and the predecessor must stay
+        #                         exactly as it is. Leaving it in the pool makes
+        #                         the very next run mark it Inactive and stamp
+        #                         it a duplicate of its own successor, which
+        #                         destroys the record the SOP exists to protect.
+        candidates = [a for a in matched_accounts
+                      if not a.get("duplicate_of_account")
+                      and not a.get("chow_current_account")]
         if not candidates:
             continue
 
@@ -334,10 +345,18 @@ def _delisted(accounts: list[dict], claimed: set[str]) -> list[Proposal]:
                 site_slug="",
                 changes={
                     "status": "Inactive",
+                    # A divestiture is a change of ownership, which is what this
+                    # field records. The successor already exists here, so no
+                    # account needs creating, but the old record should point at
+                    # the live one rather than being a dead end. Its parent is
+                    # deliberately left alone, per the SOP.
+                    "chow_current_account": rival["account_id"],
                     "note": f"No longer listed on the Bellhaven website. The identical "
                             f"address is held by {rival['name']} ({rival['account_id']}) "
                             f"under {rival.get('parent_name')}, which corroborates a "
-                            f"divestiture. Account preserved for billing "
+                            f"divestiture. Marked Inactive so it is no longer worked, and "
+                            f"linked to the successor via chow_current_account. Parent "
+                            f"left unchanged and the account preserved for billing "
                             f"(lifetime revenue {acct.get('lifetime_revenue') or 0}, "
                             f"outstanding AR {acct.get('outstanding_ar') or 0}).",
                 },
