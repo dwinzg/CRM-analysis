@@ -66,10 +66,6 @@ against frozen fixtures in `tests/fixtures/`.
 
 <!-- filled in at Task 12 -->
 
-## What I deliberately did not touch
-
-<!-- filled in at Task 12 -->
-
-## Time spent
+## Scope, and where this could go further
 
 <!-- filled in at Task 12 -->

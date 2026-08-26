@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bellhaven CRM Review</title>
+<style>
+  :root {
+    --green:#2E5D50; --gold:#C9A227; --ink:#22221E; --muted:#6d6a5e;
+    --line:#E1DCCF; --bg:#FAF8F3; --card:#fff;
+    --add:#1f7a4d; --del:#a33; --warn:#8a6d00;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+  header{background:var(--green);color:#fff;padding:16px 28px;display:flex;
+         align-items:center;gap:22px;flex-wrap:wrap;position:sticky;top:0;z-index:5}
+  header h1{font-size:17px;margin:0;font-weight:600;letter-spacing:.01em}
+  header h1 b{color:var(--gold)}
+  .pill{background:rgba(255,255,255,.14);border-radius:999px;padding:3px 11px;font-size:12.5px}
+  .pill.act{background:var(--gold);color:#3a2f00;font-weight:600}
+  header a{color:#fff;text-decoration:none}
+  .spacer{flex:1}
+  main{max-width:1120px;margin:0 auto;padding:26px 28px 90px}
+  h2{font-size:16px;margin:0;letter-spacing:.02em}
+  .grouphead{display:flex;align-items:baseline;gap:12px;margin:34px 0 6px;flex-wrap:wrap}
+  .grouphead .n{color:var(--muted);font-size:13px}
+  .blurb{color:var(--muted);font-size:13.5px;margin:0 0 14px;max-width:80ch}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:6px;
+        padding:16px 18px;margin-bottom:12px}
+  .cardtop{display:flex;justify-content:space-between;gap:14px;align-items:baseline;flex-wrap:wrap}
+  .who{font-weight:600;font-size:15.5px}
+  .conf{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:12px 0 0}
+  @media(max-width:820px){.cols{grid-template-columns:1fr}}
+  .col h4{margin:0 0 5px;font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted)}
+  .col div{font-size:13.5px}
+  .col a{color:var(--green)}
+  dl.kv{margin:0;font-size:13.5px}
+  dl.kv div{display:flex;gap:8px;padding:1px 0}
+  dl.kv dt{color:var(--muted);min-width:120px}
+  dl.kv dd{margin:0}
+  table.diff{border-collapse:collapse;width:100%;margin-top:12px;font-size:13.5px}
+  table.diff th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;
+                color:var(--muted);font-weight:600;padding:3px 8px 3px 0}
+  table.diff td{padding:3px 8px 3px 0;vertical-align:top;border-top:1px solid var(--line)}
+  td.was{color:var(--del)} td.now{color:var(--add);font-weight:600}
+  code{font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace;background:#F2EFE6;
+       padding:1px 5px;border-radius:3px}
+  .chips{margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .chip{font-size:11px;background:#EFEBDD;color:#5a5646;border-radius:3px;padding:2px 8px}
+  .chip.tier{background:var(--green);color:#fff;font-weight:600}
+  .sop{margin-top:12px;border-left:3px solid var(--gold);background:#FDF8E8;
+       padding:9px 13px;font-size:13px}
+  .sop b{color:var(--warn)}
+  .note{margin-top:10px;font-size:12.5px;color:var(--muted);font-style:italic}
+  form.act{margin-top:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  input[type=text]{flex:1;min-width:180px;padding:6px 9px;border:1px solid var(--line);
+                   border-radius:4px;font:inherit;font-size:13px;background:#fff}
+  button{font:inherit;font-size:13px;font-weight:600;border:1px solid transparent;
+         border-radius:4px;padding:6px 15px;cursor:pointer}
+  .ok{background:var(--green);color:#fff}
+  .no{background:#fff;color:var(--del);border-color:#e0c4c4}
+  .ghost{background:#fff;color:var(--muted);border-color:var(--line);font-weight:500}
+  .bulk{display:flex;gap:7px;margin-left:auto}
+  .bulk button{font-size:12px;padding:4px 11px}
+  .status{font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+  .s-approved{color:var(--add)} .s-rejected{color:var(--del)}
+  .s-applied{color:var(--add)} .s-failed{color:var(--del)}
+  .s-pending{color:var(--warn)} .s-stale{color:var(--muted)}
+  .applybar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);
+            padding:11px 28px;display:flex;align-items:center;gap:14px;font-size:13.5px}
+  .applybar .grow{flex:1}
+  .empty{color:var(--muted);padding:40px 0;text-align:center}
+  .err{background:#FBEEEE;border-left:3px solid var(--del);padding:8px 12px;
+       font-size:12.5px;margin-top:10px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Bellhaven <b>CRM Review</b></h1>
+  <a href="/?show=pending"><span class="pill {% if show=='pending' %}act{% endif %}">Pending {{ counts.get('pending', 0) }}</span></a>
+  <a href="/?show=all"><span class="pill {% if show!='pending' %}act{% endif %}">All {{ counts.values()|sum }}</span></a>
+  <div class="spacer"></div>
+  {% for k in ['approved','applied','rejected','failed','stale'] %}
+    {% if counts.get(k) %}<span class="pill">{{ k }} {{ counts[k] }}</span>{% endif %}
+  {% endfor %}
+</header>
+
+<main>
+{% if not groups %}
+  <p class="empty">
+    {% if show == 'pending' %}
+      Nothing pending. Every proposal has been decided.
+    {% else %}
+      No proposals yet — run <code>make run</code>.
+    {% endif %}
+  </p>
+{% endif %}
+
+{% for kind, rows in groups %}
+  <div class="grouphead">
+    <h2>{{ kind }}</h2>
+    <span class="n">{{ rows|length }}</span>
+    {% if show == 'pending' %}
+    <div class="bulk">
+      <form method="post" action="/decide_bulk">
+        <input type="hidden" name="kind" value="{{ kind }}">
+        <input type="hidden" name="decision" value="approved">
+        <button class="ghost" type="submit">Approve all {{ rows|length }}</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+  <p class="blurb">{{ blurb.get(kind, '') }}</p>
+
+  {% for r in rows %}
+  {% set ev = r.evidence %}
+  {% set crm = ev.get('crm') %}
+  {% set site = ev.get('site') %}
+  <div class="card">
+    <div class="cardtop">
+      <span class="who">
+        {% if crm %}{{ crm.name }}{% else %}{{ r.new_account.name }}{% endif %}
+      </span>
+      <span class="conf">
+        {% if show != 'pending' %}<span class="status s-{{ r.status }}">{{ r.status }}</span> · {% endif %}
+        confidence {{ r.confidence }}
+      </span>
+    </div>
+
+    <div class="cols">
+      <div class="col">
+        <h4>Website says</h4>
+        {% if site %}
+          <div><b>{{ site.name }}</b></div>
+          <div>{{ site.address }}</div>
+          <div>{{ site.care|join(' · ') }}{% if site.phone %} · {{ site.phone }}{% endif %}</div>
+          <div><a href="{{ site.url }}" target="_blank" rel="noopener">source &rarr;</a></div>
+        {% else %}
+          <div style="color:var(--muted)">Not listed on the Bellhaven website.</div>
+        {% endif %}
+      </div>
+      <div class="col">
+        <h4>CRM currently</h4>
+        {% if crm %}
+          <dl class="kv">
+            <div><dt>Name</dt><dd>{{ crm.name }}</dd></div>
+            <div><dt>Address</dt><dd>{{ crm.address }}</dd></div>
+            <div><dt>Parent</dt><dd>{{ crm.parent }}</dd></div>
+            <div><dt>Status</dt><dd>{{ crm.status }}</dd></div>
+            <div><dt>Care type</dt><dd>{{ crm.care_type or '—' }}</dd></div>
+            <div><dt>Lifetime revenue</dt><dd>{{ '{:,}'.format(crm.lifetime_revenue or 0) }}</dd></div>
+            <div><dt>Outstanding AR</dt><dd>{{ '{:,}'.format(crm.outstanding_ar or 0) }}</dd></div>
+            <div><dt>Account id</dt><dd><code>{{ crm.account_id }}</code></dd></div>
+          </dl>
+        {% else %}
+          <div style="color:var(--muted)">No account exists.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if r.kind == 'CHOW' %}
+    <div class="sop">
+      <b>Billing SOP — CHOW.</b> Lifetime revenue
+      {{ '{:,}'.format(crm.lifetime_revenue or 0) }} <b>AND</b> outstanding AR
+      {{ '{:,}'.format(crm.outstanding_ar or 0) }} are both above zero, so this account
+      is preserved exactly as it is — its parent is <em>not</em> changed. A successor is
+      created under Bellhaven and linked via <code>chow_current_account</code>.
+    </div>
+    {% elif r.kind == 'REPARENT' and (crm.lifetime_revenue or 0) > 0 %}
+    <div class="sop">
+      <b>Billing SOP — re-parent in place.</b> This account has revenue history
+      ({{ '{:,}'.format(crm.lifetime_revenue) }}) but outstanding AR is
+      {{ '{:,}'.format(crm.outstanding_ar or 0) }}. The SOP requires <em>both</em> to be
+      above zero for a CHOW, so the existing account is re-parented directly.
+    </div>
+    {% endif %}
+
+    {% set shown = r.changes.items()|rejectattr('0','equalto','note')|list %}
+    {% if shown %}
+    <table class="diff">
+      <tr><th>Field</th><th>Current</th><th>Proposed</th></tr>
+      {% for k, v in shown %}
+      <tr>
+        <td><code>{{ k }}</code></td>
+        <td class="was">{{ crm.get(k) if crm and crm.get(k) not in (None,'') else '—' }}</td>
+        <td class="now">{{ v }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+
+    {% if r.new_account %}
+    <table class="diff">
+      <tr><th>New account</th><th></th><th>Value</th></tr>
+      {% for k, v in r.new_account.items() if k != 'note' %}
+      <tr><td><code>{{ k }}</code></td><td></td><td class="now">{{ v or '—' }}</td></tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+
+    <div class="chips">
+      {% if ev.tier %}<span class="chip tier">Tier {{ ev.tier }}</span>{% endif %}
+      {% for s in ev.get('signals', []) %}<span class="chip">{{ s }}</span>{% endfor %}
+    </div>
+
+    {% if r.changes.get('note') %}<div class="note">{{ r.changes.note }}</div>{% endif %}
+
+    {% if r.result and r.result.get('error') %}
+      <div class="err"><b>Failed:</b> {{ r.result.error }}</div>
+    {% endif %}
+
+    {% if r.status == 'pending' %}
+    <form class="act" method="post" action="/decide">
+      <input type="hidden" name="fingerprint" value="{{ r.fingerprint }}">
+      <input type="text" name="note" placeholder="Reviewer note (optional — required in spirit for a reject)">
+      <button class="ok" name="decision" value="approved" type="submit">Approve</button>
+      <button class="no" name="decision" value="rejected" type="submit">Reject</button>
+    </form>
+    {% elif r.decided_note %}
+      <div class="note">Reviewer: {{ r.decided_note }}</div>
+    {% endif %}
+  </div>
+  {% endfor %}
+{% endfor %}
+</main>
+
+<div class="applybar">
+  <span class="grow">
+    <b>{{ counts.get('approved', 0) }}</b> approved and waiting to be written.
+    Nothing reaches the CRM until this button is pressed.
+  </span>
+  <form method="post" action="/apply">
+    <button class="ok" type="submit" {% if not counts.get('approved') %}disabled{% endif %}>
+      Apply approved to CRM
+    </button>
+  </form>
+</div>
+
+</body>
+</html>
