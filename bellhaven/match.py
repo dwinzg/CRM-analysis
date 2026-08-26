@@ -10,8 +10,8 @@ Two-stage by design:
    similarity on its own is actively dangerous here.
 
 2. Ordered TIERS, first hit wins. Tiers rather than a weighted score because a
-   reviewer has to understand why a match happened, and because retuning a
-   named rule under observation is safer than retuning a coefficient.
+   reviewer has to understand why a match happened, and because adjusting a
+   named rule is safer and more reviewable than nudging a coefficient.
 
 Every tier records the signals that fired. That list is the evidence the review
 app renders — there is no separate evidence-building step.

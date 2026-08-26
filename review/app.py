@@ -1,8 +1,8 @@
 """Local review queue. The only way a proposal becomes approved.
 
-Deliberately server-rendered with no build step: it has to start with one
-command during a live walkthrough, and a reviewer has to be able to read the
-evidence without trusting the tool that produced it.
+Deliberately server-rendered with no build step: it starts with one command,
+and a reviewer has to be able to read the evidence without trusting the tool
+that produced it.
 """
 from __future__ import annotations
 

@@ -1,5 +1,8 @@
-"""Constants and configuration. No logic lives here on purpose — this is the file
-you edit during a live demo to retune the matcher."""
+"""Constants and configuration.
+
+No logic lives here on purpose: the matcher's thresholds and the care-type
+vocabulary are the things most likely to need retuning, and they should be
+changeable without reading any other module."""
 import os
 
 from dotenv import load_dotenv
