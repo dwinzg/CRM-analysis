@@ -33,6 +33,9 @@ class FakeCrm:
         self.patches = []
         self.creates = []
 
+    def list_accounts(self):
+        return [dict(a) for a in self.accounts.values()]
+
     def get_account(self, account_id):
         return dict(self.accounts[account_id])
 
@@ -208,3 +211,68 @@ def test_apply_one_rejects_unknown_kind():
     with pytest.raises(ValueError):
         apply_one(FakeCrm([OLD]), {"kind": "NONSENSE", "changes_json": "{}",
                                    "new_account_json": "null", "target_account_id": "OLD1"})
+
+
+# --- regressions from code review ----------------------------------------
+
+def _row(kind, target, changes, before, new=None, fp="fp1"):
+    return {"kind": kind, "target_account_id": target, "site_slug": "s",
+            "changes_json": json.dumps(changes),
+            "new_account_json": json.dumps(new),
+            "evidence_json": json.dumps({"before": before}),
+            "fingerprint": fp}
+
+
+def test_refuses_to_overwrite_a_value_someone_else_changed(led):
+    """The proposal says rename from 'Bellhaven of Tiffin' to X. A colleague
+    has since renamed it to something else. Applying anyway silently destroys
+    their edit."""
+    crm = FakeCrm([{**OLD, "name": "Bellhaven of Tiffin (corrected)"}])
+    row = _row("RENAME", "OLD1", {"name": "Bellhaven Tiffin"},
+               {"name": "Bellhaven of Tiffin"})
+    with pytest.raises(ValueError, match="changed since"):
+        apply_one(crm, row)
+    assert crm.patches == []
+
+
+def test_applies_when_the_value_is_still_what_we_saw(led):
+    crm = FakeCrm([OLD])
+    row = _row("RENAME", "OLD1", {"name": "Bellhaven Tiffin"},
+               {"name": "Bellhaven of Tiffin"})
+    apply_one(crm, row)
+    assert crm.patches[0][1]["name"] == "Bellhaven Tiffin"
+
+
+def test_transport_failure_leaves_the_change_recoverable(led):
+    """A five second CRM outage must not silently retire every remaining
+    approved correction. The row records the failure and the next pipeline run
+    offers it again."""
+    p = Proposal("RENAME", "OLD1", "s", {"name": "Renamed"},
+                 {"before": {"name": "Bellhaven of Tiffin"}}, 100)
+    fp = approve(led, p)
+
+    class Flaky(FakeCrm):
+        def patch_account(self, account_id, fields):
+            raise RuntimeError("503 Service Unavailable")
+
+    apply_approved(Flaky([OLD]), led)
+    assert row_for(led, fp)["status"] == "failed"
+
+    # The pipeline sees the same proposal again and puts it back in the queue.
+    led.upsert([p])
+    assert [r["fingerprint"] for r in led.pending()] == [fp]
+
+
+def test_create_refuses_when_the_facility_already_exists(led):
+    """CREATE had no pre-flight at all, so a replayed approval made a second
+    account for one facility."""
+    existing = {**OLD, "account_id": "EX1", "name": "Amberly Manor",
+                "parent_id": config.BELLHAVEN_PARENT_ID,
+                "billing_street": "4390 Darrow Rd", "billing_zip": "44236"}
+    crm = FakeCrm([existing])
+    row = _row("CREATE", "", {}, {},
+               new={"name": "Amberly Manor", "parent_id": config.BELLHAVEN_PARENT_ID,
+                    "billing_street": "4390 Darrow Rd", "billing_zip": "44236"})
+    with pytest.raises(ValueError, match="already exists"):
+        apply_one(crm, row)
+    assert crm.creates == []

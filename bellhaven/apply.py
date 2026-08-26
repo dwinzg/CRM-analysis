@@ -5,10 +5,11 @@ Two invariants:
 1. It reads `ledger.approved()` and nothing else. A pending or rejected
    proposal is unreachable from here, which is what "nothing writes without
    approval" means in practice.
-2. It re-reads the target before every write. A proposal is a statement about
-   the CRM as it was when the pipeline ran; if the CRM has moved since, the
-   proposal is stale and gets marked failed rather than blindly overwriting
-   someone else's change.
+2. It re-reads the target before every write and compares each field against
+   the value recorded when the proposal was raised. If the CRM has moved
+   since, the row is marked failed rather than overwriting someone else's
+   edit. A failed row is not a verdict on the change: the next pipeline run
+   offers it again.
 """
 from __future__ import annotations
 
@@ -31,7 +32,17 @@ def apply_one(client, row: dict) -> dict:
     new_account = json.loads(row["new_account_json"] or "null")
     target = row["target_account_id"]
 
+    before = json.loads(row.get("evidence_json") or "{}").get("before", {})
+
     if kind == "CREATE":
+        # Without this, a replayed approval makes a second account for one
+        # facility. There is no delete in this API, so that is expensive.
+        for existing in client.list_accounts():
+            if (existing.get("name") == new_account.get("name")
+                    and existing.get("billing_zip") == new_account.get("billing_zip")):
+                raise ValueError(
+                    f"account named {new_account['name']!r} already exists at that zip "
+                    f"({existing['account_id']}); CREATE proposal is stale")
         created = client.create_account(new_account)
         return {"created_account_id": account_id_of(created)}
 
@@ -54,12 +65,22 @@ def apply_one(client, row: dict) -> dict:
         client.patch_account(target, patch)
         return {"created_account_id": successor_id, "patched": sorted(patch)}
 
-    # Ordinary field writes. If every substantive field already holds the
-    # proposed value, the work is done and the proposal is stale.
+    # Ordinary field writes, guarded two ways.
     substantive = {k: v for k, v in changes.items() if k != "note"}
+
+    # 1. The work is already done.
     if substantive and all(current.get(k) == v for k, v in substantive.items()):
         already = ", ".join(sorted(substantive))
         raise ValueError(f"already at proposed value ({already}); proposal is stale")
+
+    # 2. Someone else changed the field since the proposal was raised. Applying
+    #    now would silently destroy their edit, so refuse and let a human look.
+    for field in substantive:
+        if field in before and current.get(field, "") != before[field]:
+            raise ValueError(
+                f"{field} changed since this was proposed "
+                f"(expected {before[field]!r}, found {current.get(field)!r}); "
+                f"re-run the pipeline to raise a fresh proposal")
 
     client.patch_account(target, changes)
     return {"patched": sorted(changes)}

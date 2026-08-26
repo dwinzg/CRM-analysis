@@ -95,13 +95,15 @@ class Ledger:
             inserted += cur.rowcount
             self.db.execute("UPDATE proposals SET last_seen_at = ? WHERE fingerprint = ?",
                             (_now(), fp))
-            # A proposal that went stale and has now reappeared is still an
-            # undecided, still-valid correction. Revive it, or it stays
-            # invisible to the reviewer with no way back. Only 'stale' is
-            # lifted: a decision is permanent.
+            # A proposal that went stale, or whose write failed, is still an
+            # undecided and still-valid correction if the pipeline computes it
+            # again. Revive it, or it stays invisible with no way back: a five
+            # second CRM outage would otherwise retire every remaining
+            # approved change. Only 'stale' and 'failed' are lifted, so an
+            # approval or a rejection stays permanent.
             self.db.execute(
                 "UPDATE proposals SET status = 'pending' "
-                "WHERE fingerprint = ? AND status = 'stale'", (fp,))
+                "WHERE fingerprint = ? AND status IN ('stale', 'failed')", (fp,))
 
         # A pending proposal that stopped appearing describes a world that no
         # longer exists. Decided rows are never touched.

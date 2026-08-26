@@ -309,3 +309,82 @@ def test_retired_duplicate_is_not_flagged_delisted(sites, accounts):
     props = build_proposals(sites, after, match_all(sites, after))
     delisted = {p.target_account_id for p in props if p.kind == "DELISTED"}
     assert survivor_id not in delisted
+
+
+# --- regressions from code review ----------------------------------------
+
+def test_every_change_records_the_value_it_replaces(props, accounts):
+    """The review UI shows a Current column for each field being changed. If
+    the proposal does not carry the pre-change value, that column renders
+    blank and a human is asked to approve an overwrite without being shown
+    what is overwritten."""
+    by_id = {a["account_id"]: a for a in accounts}
+    for p in props:
+        if not p.target_account_id:
+            continue
+        before = p.evidence.get("before")
+        assert before is not None, f"{p.kind} carries no before-values"
+        for field in p.changes:
+            if field == "note":
+                continue
+            assert field in before, f"{p.kind} {field} has no recorded current value"
+            assert before[field] == by_id[p.target_account_id].get(field, "")
+
+
+def test_ashtabula_shows_the_po_box_it_replaces(props, accounts):
+    target = aid(accounts, "Bellhaven of Ashtabula")
+    p = next(p for p in of_kind(props, "FIELD_FIX") if p.target_account_id == target)
+    assert p.evidence["before"]["billing_street"] == "PO Box 517"
+
+
+def test_blank_addresses_never_corroborate_a_divestiture():
+    """DELISTED -> Inactive is the one place this tool asserts rather than
+    flags, so its evidence has to be real. Two accounts with empty addresses
+    are not at 'the identical address'."""
+    ghost = {"account_id": "G1", "name": "Bellhaven of Nowhere", "parent_id": BH,
+             "parent_name": "Bellhaven Senior Living (Parent Account)",
+             "billing_street": "", "billing_city": "", "billing_state": "",
+             "billing_zip": "", "care_type": "", "status": "Active", "phone": "",
+             "lifetime_revenue": 0, "outstanding_ar": 0,
+             "chow_current_account": "", "duplicate_of_account": "", "note": ""}
+    rival = {**ghost, "account_id": "R1", "name": "Harborview Regional Office",
+             "parent_id": "HARBOR", "parent_name": "Harborview Care Group (Parent Account)"}
+    props = build_proposals([], [ghost, rival], [])
+    p = next(p for p in props if p.target_account_id == "G1")
+    assert p.kind == "DELISTED"
+    assert p.changes["status"] == "Needs Review", \
+        "a blank address must not be treated as corroborating evidence"
+
+
+def test_null_parent_is_not_treated_as_another_operator():
+    """The API declares no response schema, so parent_id may come back as
+    JSON null rather than "". An orphan at the same address is not evidence
+    that another operator took the facility over."""
+    base = {"billing_street": "1 Main St", "billing_city": "Springfield",
+            "billing_state": "OH", "billing_zip": "45503", "care_type": "",
+            "status": "Active", "phone": "", "lifetime_revenue": 0,
+            "outstanding_ar": 0, "chow_current_account": "",
+            "duplicate_of_account": "", "note": ""}
+    mine = {**base, "account_id": "M1", "name": "Bellhaven of Springfield",
+            "parent_id": BH, "parent_name": "Bellhaven Senior Living (Parent Account)"}
+    orphan = {**base, "account_id": "O1", "name": "Springfield Care",
+              "parent_id": None, "parent_name": None}
+    props = build_proposals([], [mine, orphan], [])
+    p = next(p for p in props if p.target_account_id == "M1")
+    assert p.changes["status"] == "Needs Review"
+
+
+def test_duplicate_of_a_chow_survivor_explains_the_successor_chain(sites, accounts):
+    """If the survivor of a duplicate cluster then qualifies for a CHOW, it is
+    frozen under its old parent and a successor is created. The retired copies
+    still point at it, which is correct, but the note has to say so or the
+    trail to the live account is invisible."""
+    tiffin = by_name(accounts, "Bellhaven of Tiffin")
+    shadow = {**tiffin, "account_id": "SHADOW1", "name": "Cedar Trail of Tiffin",
+              "lifetime_revenue": 0, "outstanding_ar": 0, "parent_id": "CEDAR"}
+    modified = accounts + [shadow]
+    props = build_proposals(sites, modified, match_all(sites, modified))
+    dupes = [p for p in props if p.kind == "DUPLICATE" and p.target_account_id == "SHADOW1"]
+    assert len(dupes) == 1
+    assert "chow_current_account" in dupes[0].changes["note"], \
+        "note must point the reader on to the live successor"

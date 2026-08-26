@@ -185,7 +185,7 @@
       {% for k, v in shown %}
       <tr>
         <td><code>{{ k }}</code></td>
-        <td class="was">{{ crm.get(k) if crm and crm.get(k) not in (None,'') else '–' }}</td>
+        <td class="was">{{ ev.get('before', {}).get(k) if ev.get('before', {}).get(k) not in (None,'') else '–' }}</td>
         <td class="now">{{ v }}</td>
       </tr>
       {% endfor %}

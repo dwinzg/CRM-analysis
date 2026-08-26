@@ -1,8 +1,8 @@
 """Turns matches into proposed changes. The billing SOP lives here.
 
-Order matters. Duplicates resolve first so that exactly one account per
-facility. The survivor receives the re-parent, rename and field fixes. The
-retired copies get nothing but their duplicate marker.
+Order matters. Duplicates resolve first, so exactly one account per facility
+receives the re-parent, rename and field fixes. The retired copies get nothing
+but their duplicate marker.
 """
 from __future__ import annotations
 
@@ -85,6 +85,18 @@ def _new_account_payload(site, note: str) -> dict:
     }
 
 
+def _before(acct: dict | None, changes: dict) -> dict:
+    """The current value of every field a proposal would change.
+
+    The review UI shows this as the Current column. Without it a reviewer is
+    asked to approve an overwrite without being shown what is overwritten,
+    and apply.py has nothing to compare against to detect that the CRM moved.
+    """
+    if not acct:
+        return {}
+    return {k: acct.get(k, "") for k in changes if k != "note"}
+
+
 def _evidence(site, acct: dict | None, match) -> dict:
     ev: dict = {"tier": getattr(match, "tier", None),
                 "signals": list(getattr(match, "signals", []))}
@@ -154,11 +166,22 @@ def build_proposals(sites, accounts: list[dict], matches) -> list[Proposal]:
             continue
 
         survivor = pick_survivor(candidates)
+        survivor_chow = survivor.get("parent_id") != BH and needs_chow(survivor)
 
         # 1. Retire the losing copies. They receive nothing else.
         for acct in candidates:
             if acct["account_id"] == survivor["account_id"]:
                 continue
+            note = (f"Duplicate of {survivor['name']} ({survivor['account_id']}). "
+                    f"Same facility at {site.street}, {site.city}, {site.state} "
+                    f"{site.zip}. Source: {site.url}")
+            if survivor_chow:
+                # The survivor is about to be frozen under its old parent, so
+                # say where the live record actually is. Without this the trail
+                # from a retired copy to the successor is invisible.
+                note += (f" Note that {survivor['name']} is itself preserved under its "
+                         f"existing parent per the billing SOP; follow its "
+                         f"chow_current_account field to the live Bellhaven account.")
             proposals.append(Proposal(
                 kind="DUPLICATE",
                 target_account_id=acct["account_id"],
@@ -166,9 +189,7 @@ def build_proposals(sites, accounts: list[dict], matches) -> list[Proposal]:
                 changes={
                     "duplicate_of_account": survivor["account_id"],
                     "status": "Inactive",
-                    "note": f"Duplicate of {survivor['name']} ({survivor['account_id']}). "
-                            f"Same facility at {site.street}, {site.city}, {site.state} "
-                            f"{site.zip}. Source: {site.url}",
+                    "note": note,
                 },
                 evidence=_evidence(site, acct, match_by_id[acct["account_id"]]),
                 confidence=match_by_id[acct["account_id"]].confidence,
@@ -177,7 +198,7 @@ def build_proposals(sites, accounts: list[dict], matches) -> list[Proposal]:
         acct = survivor
         match = match_by_id[survivor["account_id"]]
         wrong_parent = acct.get("parent_id") != BH
-        chow = wrong_parent and needs_chow(acct)
+        chow = survivor_chow
 
         # 2. Ownership.
         if chow:
@@ -263,6 +284,11 @@ def build_proposals(sites, accounts: list[dict], matches) -> list[Proposal]:
             ))
 
     proposals.extend(_delisted(accounts, claimed))
+
+    # Record what each change replaces. Done centrally so no construction site
+    # can forget it.
+    for p in proposals:
+        p.evidence["before"] = _before(by_id.get(p.target_account_id), p.changes)
     return proposals
 
 
@@ -277,9 +303,15 @@ def _delisted(accounts: list[dict], claimed: set[str]) -> list[Proposal]:
     """
     by_address = defaultdict(list)
     for a in accounts:
-        if not is_po_box(a.get("billing_street")):
-            by_address[(norm_street(a.get("billing_street")),
-                        norm_zip(a.get("billing_zip")))].append(a)
+        street = norm_street(a.get("billing_street"))
+        zipcode = norm_zip(a.get("billing_zip"))
+        # An empty address is not an address. Without this guard every account
+        # missing a street and zip lands in the same ('', '') bucket and
+        # "corroborates" a divestiture for every other one, which is the only
+        # place this tool asserts a deactivation rather than flagging it.
+        if not street or not zipcode or is_po_box(a.get("billing_street")):
+            continue
+        by_address[(street, zipcode)].append(a)
 
     out: list[Proposal] = []
     for acct in accounts:
@@ -289,7 +321,10 @@ def _delisted(accounts: list[dict], claimed: set[str]) -> list[Proposal]:
         key = (norm_street(acct.get("billing_street")), norm_zip(acct.get("billing_zip")))
         rivals = [o for o in by_address.get(key, [])
                   if o["account_id"] != acct["account_id"]
-                  and o.get("parent_id") not in ("", BH)]
+                  # `not o.get("parent_id")` rather than `== ""`: the API
+                  # declares no response schema, so an orphan may arrive as
+                  # JSON null, and an orphan is not another operator.
+                  and o.get("parent_id") and o.get("parent_id") != BH]
 
         if rivals:
             rival = rivals[0]
