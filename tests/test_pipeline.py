@@ -35,3 +35,18 @@ def test_offline_run_twice_inserts_nothing_new(tmp_path):
     assert first["inserted"] > 0
     assert second["inserted"] == 0
     assert second["staled"] == 0
+
+
+def test_makefile_offline_db_matches_the_pipeline():
+    """`make review-offline` hardcodes the path pipeline.py writes to. If the
+    two drift, the review app opens on an empty queue and the tool looks like
+    it found nothing."""
+    import pathlib
+    import re
+
+    from bellhaven.pipeline import OFFLINE_DB_PATH
+
+    makefile = pathlib.Path(__file__).resolve().parents[1] / "Makefile"
+    declared = re.search(r"^OFFLINE_DB\s*:=\s*(\S+)", makefile.read_text(), re.M)
+    assert declared, "Makefile must declare OFFLINE_DB"
+    assert declared.group(1) == OFFLINE_DB_PATH
