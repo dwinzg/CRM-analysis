@@ -21,7 +21,7 @@ cp .env.example .env          # then paste your CRM token into it
 ## Running it
 
 ```bash
-make test          # 110 tests, all offline. No network and no token needed.
+make test          # 145 tests, all offline. No network and no token needed.
 make run           # scrape the site, match against the CRM, queue proposals
 make review        # http://localhost:8000 to approve or reject, with evidence
 make apply         # write only the approved proposals back to the CRM
@@ -30,7 +30,11 @@ make apply         # write only the approved proposals back to the CRM
 You can run `make run` as often as you like. Anything you already approved or
 rejected will not come back. If you want to try the pipeline without touching
 the network, `make run-offline` replays the saved fixtures in
-`tests/fixtures/`.
+`tests/fixtures/`, then `make review-offline` reviews what it proposed.
+
+Offline runs keep their own ledger (`data/ledger-offline.db`) so they cannot
+disturb a real proposal queue. That is why they need `make review-offline`
+rather than plain `make review`, which reads the live ledger.
 
 To write approved changes you can either press **Apply approved to CRM** in the
 review app or run `make apply`. Both do the same thing.

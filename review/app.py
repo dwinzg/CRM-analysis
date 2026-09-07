@@ -66,6 +66,9 @@ def index(request: Request, show: str = "pending"):
         "show": show,
         "blurb": KIND_BLURB,
         "total": len(rows),
+        # Named in the empty state. Pointing the app at the wrong ledger is
+        # this screen's most likely cause, and it is invisible otherwise.
+        "db_path": config.DB_PATH,
     })
 
 
