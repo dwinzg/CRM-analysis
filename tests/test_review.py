@@ -117,3 +117,38 @@ def test_all_view_shows_decided_rows(client):
     c.post("/decide", data={"fingerprint": fp, "decision": "rejected", "note": "no"},
            follow_redirects=False)
     assert "rejected" in c.get("/?show=all").text
+
+
+@pytest.fixture
+def empty_client(tmp_path, monkeypatch):
+    """A ledger that exists but was never populated, which is what you get
+    when `make run-offline` wrote elsewhere."""
+    db = str(tmp_path / "empty.db")
+    monkeypatch.setattr(config, "DB_PATH", db)
+    import review.app as app_module
+    monkeypatch.setattr(app_module.config, "DB_PATH", db)
+    Ledger(db)
+    yield TestClient(__import__("review.app", fromlist=["app"]).app), db
+
+
+def test_empty_ledger_does_not_claim_everything_was_decided(empty_client):
+    """The old message read as 'the tool ran and found nothing', which is a
+    different and much worse statement than 'the tool has not run'."""
+    c, _ = empty_client
+    body = c.get("/").text
+    assert "Every proposal has been decided" not in body
+    assert "No proposals" in body
+
+
+def test_empty_ledger_names_the_database_it_read(empty_client):
+    """Pointing the app at the wrong ledger is the failure this message exists
+    to explain, so it has to say which file it looked in."""
+    c, db = empty_client
+    assert db in c.get("/").text
+
+
+def test_all_decided_still_says_everything_was_decided(client):
+    c, led = client
+    for row in led.pending():
+        led.decide(row["fingerprint"], "approved")
+    assert "Every proposal has been decided" in c.get("/").text

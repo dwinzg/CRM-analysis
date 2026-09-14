@@ -91,7 +91,14 @@
 <main>
 {% if not groups %}
   <p class="empty">
-    {% if show == 'pending' %}
+    {% if not counts %}
+      {# An empty ledger has no rows in any status, so `counts` is empty. Saying
+         "every proposal has been decided" here would claim the tool ran and
+         found nothing, when in fact it has not run against this file. #}
+      No proposals in <code>{{ db_path }}</code>.
+      Run <code>make run-offline</code> (then <code>make review-offline</code>),
+      or <code>make run</code> for the live CRM.
+    {% elif show == 'pending' %}
       Nothing pending. Every proposal has been decided.
     {% else %}
       No proposals yet. Run <code>make run</code>.
